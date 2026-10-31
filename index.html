@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今日の出社コーデ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --fg:#2b2b28; --sub:#6f6f69; --line:#e3e1dc; --tint:#eef3f7; --accent:#3b6a8f;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#191919; --fg:#ececea; --sub:#a0a09a; --line:#333330; --tint:#232a30; --accent:#8fb8d6; color-scheme:dark;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",Meiryo,sans-serif;background:var(--bg);color:var(--fg);padding:20px;line-height:1.6}
+.wrap{max-width:720px;margin:0 auto}
+.head{background:var(--tint);border-radius:14px;padding:18px 20px;display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-end;transition:background .4s}
+.temp{font-size:56px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.temp small{font-size:20px;font-weight:400;margin-left:2px}
+.meta{font-size:14px;color:var(--sub);flex:1;min-width:200px}
+.meta b{color:var(--fg);font-weight:700}
+.alert{margin:12px 0 0;padding:10px 14px;border-left:3px solid var(--accent);font-size:14px}
+.list{display:grid;gap:12px;margin-top:16px}
+.item{border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.item h2{margin:0 0 6px;font-size:16px}
+.item p{margin:0;font-size:14px;color:var(--sub)}
+.item ul{margin:0 0 6px;padding-left:1.1em;font-size:15px}
+.foot{margin-top:14px;font-size:12px;color:var(--sub)}
+.err{padding:16px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="err">天気を取得しています…</div></div>
+
+<script>
+// 場所は URL で変更可能: outfit.html?lat=35.68&lon=139.76&name=東京
+const q = new URLSearchParams(location.search);
+const LAT = q.get("lat") || "35.7996";
+const LON = q.get("lon") || "139.4687";
+const NAME = q.get("name") || "所沢";
+const GO = +(q.get("go") || 8);   // 出社時刻
+const BACK = +(q.get("back") || 19); // 退勤時刻
+
+// 体感温度ごとの服装(すべてジャケット着用 / ネクタイは任意でパターンに応じて)
+const TIERS = [
+  { min: 28, label: "とても暑い", tint: ["#fdeee6","#3a2a22"], sets: [
+    ["ネクタイあり(きちんと)", ["軽量サマージャケット(移動中は脱いで持つ)","白の長袖シャツ+麻やシルクのネクタイ","薄手スラックス","通気性のいい革靴"]],
+    ["ノーネクタイ(きれいめ)", ["リネンやハイゲージのジャケット","開襟シャツ or 無地ポロ","薄手スラックス","ローファー"]],
+    ["抜け感(カジュアル寄り)", ["ストレッチのライトジャケット","無地Tシャツ","軽いチノパン","白スニーカー"]] ]},
+  { min: 23, label: "暑め", tint: ["#fdf3e3","#38301f"], sets: [
+    ["ネクタイあり(きちんと)", ["薄手ジャケット","長袖シャツ+ネクタイ","スラックス","革靴"]],
+    ["ノーネクタイ(きれいめ)", ["薄手ジャケット","シャツ(第一ボタンを開ける)","チノ or スラックス","ローファー"]],
+    ["抜け感(カジュアル寄り)", ["コットンジャケット","Tシャツ or ポロ","チノパン","スニーカー"]] ]},
+  { min: 18, label: "快適", tint: ["#eef5ec","#232f22"], sets: [
+    ["ネクタイあり(きちんと)", ["ジャケット","シャツ+ニットタイ","スラックス","革靴"]],
+    ["ノーネクタイ(きれいめ)", ["ジャケット","薄手ニット or カットソー","スラックス","革靴"]],
+    ["抜け感(カジュアル寄り)", ["ジャケット","ポロ or Tシャツ","デニム or チノ","スニーカー"]] ]},
+  { min: 13, label: "やや肌寒い", tint: ["#eef3f7","#232a30"], sets: [
+    ["ネクタイあり(きちんと)", ["ジャケット","シャツ+ウールタイ","カーディガン or ベストを中に","スラックス+革靴"]],
+    ["ノーネクタイ(きれいめ)", ["ジャケット","タートル or ハイゲージニット","スラックス","革靴"]],
+    ["抜け感(カジュアル寄り)", ["ジャケット","薄手スウェット or パーカーを中に","デニム","スニーカー"]] ]},
+  { min: 8, label: "寒い", tint: ["#e9eef6","#222833"], sets: [
+    ["ネクタイあり(きちんと)", ["ウールジャケット+コート","シャツ+ネクタイ+ニットベスト","スラックス","革靴"]],
+    ["ノーネクタイ(きれいめ)", ["ジャケット+コート","厚手ニット","ヒートテック系インナー","スラックス+革靴"]],
+    ["抜け感(カジュアル寄り)", ["ジャケット+ライトダウン","スウェット","裏起毛パンツ","スニーカー"]] ]},
+  { min: -99, label: "かなり寒い", tint: ["#e6e9f3","#212535"], sets: [
+    ["ネクタイあり(きちんと)", ["ジャケット+チェスターorロングコート","シャツ+ウールタイ+ニット","マフラー・手袋","革靴"]],
+    ["ノーネクタイ(きれいめ)", ["ジャケット+コート","タートルニット+インナー","マフラー・手袋","スラックス+革靴"]],
+    ["抜け感(カジュアル寄り)", ["ジャケット+ダウン","厚手ニット","裏起毛パンツ","ネックウォーマー+防寒スニーカー"]] ]}
+];
+
+const avg = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+
+async function main() {
+  const url = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
+    "&hourly=temperature_2m,apparent_temperature,precipitation_probability" +
+    "&timezone=Asia%2FTokyo&forecast_days=1";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const d = (await res.json()).hourly;
+
+  const go = [GO, GO + 1], back = [BACK, BACK + 1];
+  const pick = (key, hrs) => avg(hrs.map(h => d[key][h]));
+  const tGo = pick("temperature_2m", go), tBack = pick("temperature_2m", back);
+  const fGo = pick("apparent_temperature", go), fBack = pick("apparent_temperature", back);
+  const rain = Math.max(...[GO, GO + 1, BACK, BACK + 1].map(h => d.precipitation_probability[h] || 0));
+
+  // 朝晩の低いほうの体感温度に合わせる
+  const feel = Math.min(fGo, fBack);
+  const tier = TIERS.find(t => feel >= t.min);
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.style.setProperty("--tint", dark ? tier.tint[1] : tier.tint[0]);
+
+  const notes = [];
+  if (Math.abs(tGo - tBack) >= 6) notes.push("朝晩の気温差が約" + Math.round(Math.abs(tGo - tBack)) + "℃あります。脱ぎ着しやすい羽織りがあると安心です。");
+  if (rain >= 50) notes.push("通勤時間帯の降水確率は" + rain + "%です。傘と、濡れても平気な靴を。");
+  else if (rain >= 30) notes.push("通勤時間帯の降水確率は" + rain + "%です。折りたたみ傘を持っておくと安心です。");
+
+  const r = (n) => Math.round(n);
+  document.getElementById("app").innerHTML =
+    '<div class="head"><div class="temp">' + r(fGo) + '<small>℃</small></div>' +
+    '<div class="meta"><b>' + NAME + '・' + tier.label + '</b><br>' +
+    '行き ' + r(tGo) + '℃(体感' + r(fGo) + '℃) / 帰り ' + r(tBack) + '℃(体感' + r(fBack) + '℃)<br>' +
+    '降水確率 最大' + rain + '%</div></div>' +
+    notes.map(n => '<div class="alert">' + n + '</div>').join("") +
+    '<div class="list">' + tier.sets.map(s =>
+      '<div class="item"><h2>' + s[0] + '</h2><ul>' + s[1].map(x => '<li>' + x + '</li>').join("") + '</ul></div>'
+    ).join("") + '</div>' +
+    '<div class="foot">' + GO + '時・' + BACK + '時の予報から自動で提案しています(Open-Meteo)。</div>';
+}
+
+main().catch(e => {
+  document.getElementById("app").innerHTML =
+    '<div class="err">天気を取得できませんでした。ページを再読み込みしてください。(' + e.message + ')</div>';
+});
+</script>
+</body>
+</html>
