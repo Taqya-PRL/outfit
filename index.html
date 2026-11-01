@@ -26,7 +26,7 @@ body{font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",Meiryo,san
 .alert{margin:12px 0 0;padding:10px 14px;border-left:3px solid var(--accent);font-size:14px}
 .list{display:grid;gap:12px;margin-top:16px}
 .item{border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.fig svg{width:116px;height:auto;display:block}
+.fig svg{width:210px;height:auto;display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.25))}
 .wx{display:flex;gap:14px;margin-left:auto}
 .wx div{text-align:center;font-size:12px;color:var(--sub)}
 .wx svg{width:44px;height:44px;display:block;margin:0 auto 2px}
@@ -183,89 +183,106 @@ function parseColor(code) {
   const base = (chk || str || geo) ? code.slice(0, -4) : code;
   return { cs: base.split("/").map(x => P[x]), chk, str, geo };
 }
-function cssOf(code) {
+function cssOf(code, grid) {
   const { cs, chk, str, geo } = parseColor(code);
   if (geo) return "radial-gradient(circle,#f7f7f5 1px,transparent 1.4px) 0 0/5px 5px," + cs[0];
   if (cs.length === 1) return cs[0];
+  if (chk && grid) return "linear-gradient(90deg," + cs[1] + " 1px,transparent 1px) 0 0/7px 7px,linear-gradient(" + cs[1] + " 1px,transparent 1px) 0 0/7px 7px," + cs[0];
   if (chk) return "repeating-conic-gradient(" + cs[0] + " 0 25%," + cs[1] + " 0 50%) 0 0/8px 8px";
   if (str) return "repeating-linear-gradient(90deg," + cs[0] + " 0 3px," + cs[1] + " 3px 6px)";
   return "linear-gradient(90deg," + cs[0] + " 50%," + cs[1] + " 50%)";
 }
 let uid = 0;
-function fillOf(code, defs) {
+function fillOf(code, defs, grid) {
   const { cs, chk, str, geo } = parseColor(code);
   if (cs.length === 1 && !geo) return cs[0];
   const id = "f" + (uid++);
   if (geo) defs.push('<pattern id="' + id + '" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="' + cs[0] + '"/><circle cx="2.5" cy="2.5" r="1" fill="#f7f7f5"/></pattern>');
+  else if (chk && grid) defs.push('<pattern id="' + id + '" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="' + cs[0] + '"/><path d="M0 0H12M0 0V12" stroke="' + cs[1] + '" stroke-width="1.1" opacity=".9" fill="none"/><path d="M6 0V12M0 6H12" stroke="' + cs[1] + '" stroke-width=".4" opacity=".5" fill="none"/></pattern>');
   else if (chk) defs.push('<pattern id="' + id + '" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="' + cs[0] + '"/><rect width="4" height="4" fill="' + cs[1] + '"/><rect x="4" y="4" width="4" height="4" fill="' + cs[1] + '"/></pattern>');
   else if (str) defs.push('<pattern id="' + id + '" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="' + cs[0] + '"/><rect width="3" height="6" fill="' + cs[1] + '"/></pattern>');
   else defs.push('<linearGradient id="' + id + '"><stop offset="50%" stop-color="' + cs[0] + '"/><stop offset="50%" stop-color="' + cs[1] + '"/></linearGradient>');
   return "url(#" + id + ")";
 }
 
-// ===== コーディネートのイラスト(ファッション画風) =====
+// ===== コーディネートのイラスト(フラットレイ: 服を並べて置いた見た目) =====
 function figure(o) {
   const g = (role) => o.find(x => x[2] === role);
-  const defs = [], F = (c) => fillOf(c, defs), SKIN = "#ecd5c0";
-  const gid = "sd" + (uid++);
+  const defs = [], F = (c) => fillOf(c, defs), FG = (c) => fillOf(c, defs, true);
+  const gid = "sd" + (uid++), fid = "sh" + (uid++);
   defs.push('<linearGradient id="' + gid + '" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient>');
-  const SD = "url(#" + gid + ")";
-  const sym = (p) => p + '<g transform="translate(140 0) scale(-1 1)">' + p + '</g>';
-  const shade = (dd) => sym('<path d="' + dd + '" fill="' + SD + '" stroke="none"/>');
-  const body = (dd, fill) => sym('<path d="' + dd + '" fill="' + fill + '"/>') + shade(dd);
+    const SD = "url(#" + gid + ")", SH = "";
   const set = g("set"), jk = g("jacket"), cp = g("pants"), top = g("top"), tie = g("tie"), coat = g("coat"), so = g("socks"), sh = g("shoes");
-  const jc = F((set || jk)[1]), pc = F(set ? set[1] : cp[1]), tc = F(top[1]);
-  const end = (set ? set[3] : cp[3]) ? 280 : 292;
+  const jc = F((set || jk)[1]), pc = FG(set ? set[1] : cp[1]), tc = F(top[1]);
+  const PE = (set ? set[3] : cp[3]) ? 198 : 214;
   const crew = /Tシャツ|クルー|スウェット/.test(top[0]);
   const suit = !!set && set[0].startsWith("スリーピース");
-  const sneaker = /スニーカー|スリッポン/.test(sh[0]);
-  const lite = "rgba(255,255,255,.14)";
+  const sneaker = /スニーカー/.test(sh[0]), slip = /スリッポン/.test(sh[0]);
+  const lite = "rgba(255,255,255,.14)", dk = "rgba(0,0,0,.25)";
+  const sym = (p) => p + '<g transform="translate(140 0) scale(-1 1)">' + p + '</g>';
+  const body = (dd, fill) => sym('<path d="' + dd + '" fill="' + fill + '"/><path d="' + dd + '" fill="' + SD + '" stroke="none"/>');
+  const sleeve = (dd, fill, rot, px, py, mirror, cf) =>
+    '<g transform="' + (mirror ? 'translate(140 0) scale(-1 1) ' : '') + 'rotate(' + rot + ' ' + px + ' ' + py + ')"><path d="' + dd + '" fill="' + fill + '"/><path d="' + dd + '" fill="' + SD + '" stroke="none"/><ellipse cx="' + cf[0] + '" cy="' + cf[1] + '" rx="' + cf[2] + '" ry="1.8" fill="rgba(0,0,0,.3)" stroke="none"/></g>';
+
   let s = '<g stroke="rgba(0,0,0,.22)" stroke-width=".7" stroke-linejoin="round">';
-  // 背景(アーチ)と影
-  const arch = "M10 316V74Q10 14 70 14Q130 14 130 74V316Z";
-  s += '<path d="' + arch + '" style="fill:var(--tint)" stroke="none"/><path d="' + arch + '" style="fill:var(--bg);opacity:.45" stroke="none"/>';
-  s += '<ellipse cx="70" cy="310" rx="34" ry="3" fill="rgba(0,0,0,.1)" stroke="none"/>';
-  // 脚・靴下・靴
-  s += body("M48 146L69 146L66.5 " + end + "L54 " + end + "Z", pc);
-  s += sym('<line x1="58.5" y1="158" x2="60" y2="' + (end - 4) + '" stroke="rgba(0,0,0,.14)"/>');
-  s += sym('<rect x="54.5" y="' + end + '" width="11.5" height="' + (298 - end) + '" fill="' + F(so[1]) + '"/>');
-  s += sym('<path d="M52.5 295L65.5 295L68 303Q68.5 308 63 308L54 308Q49.5 308 50 303Z" fill="' + F(sh[1]) + '"/>');
-  if (sneaker) s += sym('<path d="M50.2 304.5L68.3 304.5Q68.4 308 63 308L54 308Q49.8 308 50.2 304.5Z" fill="#f2f2ee" stroke="none"/>');
-  // 首・トップス
-  s += '<path d="M58 38Q70 31 82 38L82 46L58 46Z" fill="' + jc + '"/><path d="M58 38Q70 31 82 38L82 46L58 46Z" fill="rgba(0,0,0,.25)" stroke="none"/>';
-  s += '<path d="M57 40L83 40L83 147L57 147Z" fill="' + tc + '"/><path d="M62 34Q70 31 78 34L78 41L62 41Z" fill="' + tc + '"/><path d="M62 34Q70 31 78 34L78 41L62 41Z" fill="rgba(0,0,0,.2)" stroke="none"/>';
-  if (top[3]) s += '<rect x="62" y="25" width="16" height="19" rx="6" fill="' + tc + '"/><ellipse cx="70" cy="26" rx="7.5" ry="2.2" fill="rgba(0,0,0,.3)" stroke="none"/>';
-  else if (crew) s += '<path d="M63 35Q70 33 77 35L77 41Q70 49 63 41Z" fill="rgba(0,0,0,.3)" stroke="none"/>';
-  else s += sym('<path d="M64 33L70 46L62 52L60 40Z" fill="' + tc + '"/>');
-  if (tie) { const t = F(tie[1]); s += '<path d="M67.5 47L72.5 47L74.2 98L70 106L65.8 98Z" fill="' + t + '"/><path d="M67.8 42L72.2 42L73 48L67 48Z" fill="' + t + '"/>'; }
-  if (suit) s += '<path d="M60 52L70 102L80 52L80 147L60 147Z" fill="' + jc + '"/><path d="M60 52L70 102L80 52L80 147L60 147Z" fill="' + SD + '" stroke="none"/><circle cx="70" cy="118" r="1.3" fill="rgba(0,0,0,.45)" stroke="none"/>';
-  // ジャケット
-  s += body("M49 46Q50 40 58 38L63 38L70 106L70 150L46 150Q44 122 47 98Z", jc);
-  s += sym('<path d="M58 38.5L63 38L70 106L53 68L56 52Z" fill="' + lite + '"/>');
-  s += sym('<line x1="50" y1="132" x2="61" y2="131" stroke="rgba(0,0,0,.25)"/>');
-  s += '<circle cx="67.2" cy="116" r="1.3" fill="rgba(0,0,0,.45)" stroke="none"/>';
-  s += body("M49 46C44 48 41 56 40 68L36 120L46 122L49 82Z", jc);
-  let hand = [41, 128];
-  // コート
+
+  // パンツ(左に縦置き)
+  const pd = "M12 14L62 14L66 " + PE + "L38 " + PE + "L37.5 104L36.5 " + PE + "L10 " + PE + "Z";
+  s += '<g' + SH + ' transform="translate(6 6) rotate(-2 37 110)"><path d="' + pd + '" fill="' + pc + '"/><path d="' + pd + '" fill="' + SD + '" stroke="none"/>';
+  s += '<path d="M12 14L62 14L62.3 22L11.7 22Z" fill="rgba(0,0,0,.18)"/>';
+  s += [22, 37, 52].map(x => '<rect x="' + (x - 1.5) + '" y="12.5" width="3" height="11" rx="1" fill="rgba(0,0,0,.22)" stroke="none"/>').join("");
+  s += '<path d="M37 22L37 52Q37 58 33 60M13 24Q25 38 21 58M61 24Q49 38 53 58" fill="none" stroke="rgba(0,0,0,.26)"/>';
+  s += '<line x1="23" y1="64" x2="22" y2="' + (PE - 6) + '" stroke="rgba(0,0,0,.14)"/><line x1="51" y1="64" x2="52" y2="' + (PE - 6) + '" stroke="rgba(0,0,0,.14)"/></g>';
+
+  // ジャケット(中央に開いて置く)
+  let j = '<path d="M58 38Q70 31 82 38L82 46L58 46Z" fill="' + jc + '"/><path d="M58 38Q70 31 82 38L82 46L58 46Z" fill="' + dk + '" stroke="none"/>';
+  j += '<path d="M57 40L83 40L83 147L57 147Z" fill="' + tc + '"/><path d="M62 34Q70 31 78 34L78 41L62 41Z" fill="' + tc + '"/><path d="M62 34Q70 31 78 34L78 41L62 41Z" fill="rgba(0,0,0,.2)" stroke="none"/>';
+  if (top[3]) j += '<rect x="62" y="25" width="16" height="19" rx="6" fill="' + tc + '"/><ellipse cx="70" cy="26" rx="7.5" ry="2.2" fill="rgba(0,0,0,.3)" stroke="none"/>';
+  else if (crew) j += '<path d="M63 35Q70 33 77 35L77 41Q70 49 63 41Z" fill="rgba(0,0,0,.3)" stroke="none"/>';
+  else j += sym('<path d="M64 33L70 46L62 52L60 40Z" fill="' + tc + '"/>');
+  if (tie) { const t = F(tie[1]); j += '<path d="M67.5 47L72.5 47L74.2 98L70 106L65.8 98Z" fill="' + t + '"/><path d="M67.8 42L72.2 42L73 48L67 48Z" fill="' + t + '"/>'; }
+  if (suit) j += '<path d="M60 52L70 102L80 52L80 147L60 147Z" fill="' + jc + '"/><path d="M60 52L70 102L80 52L80 147L60 147Z" fill="' + SD + '" stroke="none"/><circle cx="70" cy="118" r="1.3" fill="rgba(0,0,0,.45)" stroke="none"/>';
+  j += body("M49 46Q50 40 58 38L63 38L70 106L70 150L46 150Q44 122 47 98Z", jc);
+  j += sym('<path d="M58 38.5L63 38L70 106L53 68L56 52Z" fill="' + lite + '"/><line x1="50" y1="132" x2="61" y2="131" stroke="rgba(0,0,0,.25)"/>');
+  j += '<circle cx="67.2" cy="116" r="1.3" fill="rgba(0,0,0,.45)" stroke="none"/>';
+  const jd = "M49 46C42 48 38 56 37 68L31 120L46 123L49 82Z", jcf = [38.5, 121.5, 7.7];
+  j += sleeve(jd, jc, coat ? 80 : 74, 49, 46, false, jcf) + sleeve(jd, jc, coat ? 42 : 36, 49, 46, true, jcf);
+  s += '<g' + SH + ' transform="translate(60 12) scale(1.2)">' + j + '</g>';
+
+  // コート(ジャケットの上に重ねて置く)
   if (coat) {
     const c = F(coat[1]), down = coat[0].startsWith("ダウン"), hem = down ? 196 : 226, hx = down ? 38 : 41;
-    s += body("M45 46Q46 39 58 37L63 37L70 " + (down ? 100 : 92) + "L70 " + hem + "L" + hx + " " + hem + "Q" + (hx - 1) + " 150 44 100Z", c);
-    s += body("M45 46C39 48 36 58 35 70L31 " + (down ? 126 : 130) + "L44 " + (down ? 128 : 132) + "L45 86Z", c);
+    let k = body("M45 46Q46 39 58 37L63 37L70 " + (down ? 100 : 92) + "L70 " + hem + "L" + hx + " " + hem + "Q" + (hx - 1) + " 150 44 100Z", c);
+    const cd = "M45 46C37 48 33 58 32 70L26 " + (down ? 124 : 128) + "L44 " + (down ? 127 : 131) + "L45 86Z", ccf = [35, down ? 125.5 : 129.5, 9.2];
+    k += sleeve(cd, c, 66, 45, 46, false, ccf) + sleeve(cd, c, 30, 45, 46, true, ccf);
     if (down) {
-      s += '<rect x="56" y="30" width="28" height="13" rx="6.5" fill="' + c + '"/><ellipse cx="70" cy="32" rx="9" ry="2" fill="rgba(0,0,0,.35)" stroke="none"/>';
-      [70, 95, 120, 145, 170].forEach(y => { s += sym('<path d="M42 ' + y + 'Q56 ' + (y + 4) + ' 70 ' + y + '" fill="none" stroke="rgba(255,255,255,.18)"/>'); });
-      hand = [37, 135];
+      k += '<rect x="56" y="30" width="28" height="13" rx="6.5" fill="' + c + '"/><ellipse cx="70" cy="32" rx="9" ry="2" fill="rgba(0,0,0,.35)" stroke="none"/>';
+      [70, 95, 120, 145, 170].forEach(y => { k += sym('<path d="M42 ' + y + 'Q56 ' + (y + 4) + ' 70 ' + y + '" fill="none" stroke="rgba(255,255,255,.18)"/>'); });
     } else {
-      s += sym('<path d="M57 38L63 37L70 92L50 62L54 48Z" fill="' + lite + '"/>');
-      [112, 142, 172].forEach(y => { s += '<circle cx="67" cy="' + y + '" r="1.5" fill="rgba(0,0,0,.45)" stroke="none"/>'; });
-      hand = [37, 138];
+      k += sym('<path d="M57 38L63 37L70 92L50 62L54 48Z" fill="' + lite + '"/>');
+      [112, 142, 172].forEach(y => { k += '<circle cx="67" cy="' + y + '" r="1.5" fill="rgba(0,0,0,.45)" stroke="none"/>'; });
     }
+    s += '<g' + SH + ' transform="translate(60 12) scale(1.2)">' + k + '</g>';
   }
-  // 袖口
-  const cuff = coat ? [37.5, coat[0].startsWith("ダウン") ? 127.5 : 131.5, 6.8] : [41, 121.5, 5.2];
-  s += sym('<ellipse cx="' + cuff[0] + '" cy="' + cuff[1] + '" rx="' + cuff[2] + '" ry="1.8" fill="rgba(0,0,0,.3)" stroke="none"/>');
-  s += '</g>';
-  return '<svg viewBox="0 6 140 312" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="コーディネートのイメージ"><defs>' + defs.join("") + '</defs>' + s + '</svg>';
+
+  // 靴(上から見た形)と靴下
+  const sy = coat ? 302 : 236, VH = coat ? 332 : 270;
+  const bc = sh[1].split("/"), shoeF = F(bc[0]), acc = bc[1] ? F(bc[1]) : null;
+  const out = "M0 -28C7 -28 10 -18 10.5 -6C11 8 10 22 0 27C-10 22 -11 8 -10.5 -6C-10 -18 -7 -28 0 -28Z";
+  const shoe = (x, y, rot) => {
+    let r = '<g' + SH + ' transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')">';
+    if (sneaker) r += '<path d="' + out + '" fill="none" stroke="#f2f2ee" stroke-width="3"/>';
+    r += '<path d="' + out + '" fill="' + shoeF + '"/>';
+    if (acc) r += '<path d="M-9 14Q0 20 9 14C9 22 5 25 0 26C-5 25 -9 22 -9 14Z" fill="' + acc + '" stroke="none"/>';
+    r += slip ? '<ellipse cx="0" cy="6" rx="6.5" ry="14" fill="rgba(0,0,0,.45)" stroke="none"/>' : '<ellipse cx="0" cy="10" rx="5.5" ry="9" fill="rgba(0,0,0,.45)" stroke="none"/>';
+    r += '<path d="M-8 -14Q0 -9 8 -14" fill="none" stroke="rgba(0,0,0,.3)"/>';
+    if (!slip) r += [-6, -2, 2].map(yy => '<line x1="-5" y1="' + yy + '" x2="5" y2="' + yy + '" stroke="' + (sneaker ? "#f2f2ee" : "rgba(255,255,255,.3)") + '" stroke-width="1.1"/>').join("");
+    return r + '</g>';
+  };
+  const sk = F(so[1]);
+  const sock = (x, y, rot) => '<g' + SH + ' transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')"><rect x="-8" y="-15" width="16" height="30" rx="6" fill="' + sk + '"/><rect x="-8" y="-15" width="16" height="6" rx="3" fill="rgba(0,0,0,.18)" stroke="none"/></g>';
+  s += sock(112, sy + 4, -10) + sock(127, sy + 10, 8) + shoe(158, sy, -8) + shoe(190, sy - 4, 6) + '</g>';
+  return '<svg viewBox="0 0 262 ' + VH + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="コーディネートのイメージ"><defs>' + defs.join("") + '</defs>' + s + '</svg>';
 }
 
 // ===== 天気のイラスト =====
@@ -327,7 +344,7 @@ async function main() {
     notes.map(n => '<div class="alert">' + n + '</div>').join("") +
     '<div class="list">' + PATTERNS.map(p => { const o = compose(p[0], feel, rain); const label = (p[0] === "A" && feel >= SUMMER) ? "ノーネクタイ(きちんと)" : p[1];
       return '<div class="item"><div class="fig">' + figure(o) + '</div><div><h2>' + label + '</h2><ul class="parts">' +
-        o.map(x => '<li><i style="background:' + cssOf(x[1]) + '"></i>' + x[0] + '</li>').join("") + '</ul></div></div>'; }).join("") + '</div>' +
+        o.map(x => '<li><i style="background:' + cssOf(x[1], x[2] === "pants" || x[2] === "set") + '"></i>' + x[0] + '</li>').join("") + '</ul></div></div>'; }).join("") + '</div>' +
     '<div class="foot">' + GO + '時・' + BACK + '時の予報から自動で提案しています(Open-Meteo)。</div>';
 }
 
