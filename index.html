@@ -101,7 +101,7 @@ const PANTS = [ // 名前, 色, 季節, 対象, 合わせないジャケット�
   ["ジーンズ","BLK","春秋冬","C","brown navy",0],
   ["ジーンズ","DRK-NVY","春秋","C","navy",1] ]
   .concat(SETUPS.map(s => [s[0] + "・パンツ", s[1], s[2], "ABC", s[3] === "navy" ? "navy" : s[3] === "black" ? "brown navy" : "brown", 1]));
-const TOPS = [ // 名前, 色, 範囲, 対象, ドレスシャツ, 首が詰まった形
+const TOPS = [ // 名前, 色, 範囲, 対象, ドレスシャツ, 首が詰まった形, ジャケットと合わせ不可(厚手)
   ["シャツ","WHT",[-99,99],"ABC",1,0],
   ["シャツ","DEP-IDG",[8,27],"ABC",1,0],
   ["シャツ","PAL-IDG","春夏","ABC",1,0],
@@ -115,8 +115,8 @@ const TOPS = [ // 名前, 色, 範囲, 対象, ドレスシャツ, 首が詰ま�
   ["メリノタートルネックニット","GRY",[-99,17],"BC",0,1],
   ["メリノクルーネックニット","GRY",[5,20],"BC",0,0],
   ["メリノクルーネックニット","CML",[5,20],"BC",0,0],
-  ["スフレヤーンハーフジップハイネックニット","OFF-WHT",[-99,12],"C",0,1],
-  ["スフレヤーンハイネックカーディガン","BRW",[-99,12],"BC",0,1],
+  ["スフレヤーンハーフジップハイネックニット","OFF-WHT",[-99,12],"C",0,1,1],
+  ["スフレヤーンハイネックカーディガン","BRW",[-99,12],"BC",0,1,1],
   ["スウェット","LGT-GRY",[8,21],"C",0,0],
   ["スウェット","DRK-GRY",[8,21],"C",0,0] ];
 const TIES = [ // 名前, 色, 範囲
@@ -170,7 +170,7 @@ function compose(k, feel, rain) {
     if (j.s && r() < 0.6) { set = true; out.push([d(j.s[0], j.s[1]), j.s[1], "set", j.s[4]]); }
     else out.push([j.n, j.c, "jacket"]);
   }
-  const top = pick(TOPS.filter(x => x[3].includes(k) && ok(x) && (k !== "A" || x[4])));
+  const top = pick(TOPS.filter(x => x[3].includes(k) && ok(x) && (k !== "A" || x[4]) && !x[6])); // 厚手(x[6])はジャケットと合わせない
   out.push([d(top[0], top[1]), top[1], "top", top[5]]);
   if (k === "A" && feel < SUMMER) { const t = pick(TIES.filter(ok)); out.push([d(t[0], t[1]), t[1], "tie"]); }
   if (!set) { const p = pick(PANTS.filter(x => x[3].includes(k) && ok(x) && !x[4].includes(tone))); out.push([d(p[0], p[1]), p[1], "pants", p[5]]); if (p[1] === "BLK") stone = "black"; else if (p[1].includes("BRW")) stone = "brown"; }
