@@ -140,7 +140,7 @@ const SOCKS = {
   l:["GRY","LGT-GRY/NVY-CHK"],
   g:["GRN","GRY","LGT-GRY/NVY-CHK"] };
 const COATS = [["チェスターコート","CML"], ["ダウンコート","BLK"]];
-const PATTERNS = [["A","ネクタイあり(きちんと)"],["B","ノーネクタイ(きれいめ)"],["C","抜け感(カジュアル寄り)"]];
+const PATTERNS = [["A","Formal"],["B","Smart Casual"],["C","Relax Casual"]];
 
 // 日付ごとに変わる乱数(同じ日は同じ提案になる)
 function rng(seed) {
@@ -167,6 +167,7 @@ function compose(k, feel, rain) {
     const kn = pick(TOPS.filter(x => x[6] && x[3].includes(k) && ok(x)));
     tone = stone = /BRW/.test(kn[1]) ? "brown" : "none";
     out.push([d(kn[0], kn[1]), kn[1], "top", kn[5]]);
+    if (k === "B" && r() < 0.6) { const kt = pick(TIES.filter(x => x[0] === "ニットタイ")); out.push([d(kt[0], kt[1]), kt[1], "tie"]); } // 厚手ニット+ニットタイ(きれいめ)
   }
   else {
     let cands = JACKETS.filter(ok).map(x => ({ n: d(x[0], x[1]), c: x[1], t: x[3] }))
@@ -327,7 +328,7 @@ function figure(o) {
     return r;
   };
 
-  // ===== レイアウト(上から: コート/ジャケット → シャツ・ネクタイ・パンツ → 靴・靴下) =====
+  // ===== レイアウト(名前は各アイテムの下に表示) =====
   let y = 12, s = '<g stroke="rgba(0,0,0,.22)" stroke-width=".7" stroke-linejoin="round">';
   const place = (inner, sc, top0, bottom, label, cx) => {
     s += '<g transform="translate(' + (cx - 70 * sc) + ' ' + (y - top0 * sc) + ') scale(' + sc + ')">' + inner + '</g>';
@@ -343,7 +344,7 @@ function figure(o) {
   if (tie) { s += tieItem(118, my) + cap(118, my + 128, "TIE"); my = yc + 142; } else my = yc + 10;
   if (so[1]) { s += socksItem(118, my) + cap(118, my + 68, "SOCKS"); }
   s += shoe(36, yc + 168, -6) + shoe(66, yc + 165, 6) + cap(51, yc + 210, "SHOES");
-  s += pantsItem(152, yc) + cap(190, yc + PE - 14 + 14, "PANTS") + '</g>';
+  s += pantsItem(152, yc) + cap(190, yc + PE, "PANTS") + '</g>';
   const H = yc + 232;
   return '<svg viewBox="0 0 240 ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="コーディネートのイメージ"><defs>' + defs.join("") + '</defs>' + s + '</svg>';
 }
@@ -422,7 +423,7 @@ async function main() {
     '行き ' + r(tGo) + '℃(体感' + r(fGo) + '℃) / 帰り ' + r(tBack) + '℃(体感' + r(fBack) + '℃)<br>' +
     '降水確率 最大' + rain + '%</div>' + wxHtml + '</div>' +
     notes.map(n => '<div class="alert">' + n + '</div>').join("") +
-    '<div class="list">' + PATTERNS.map(p => { const o = compose(p[0], feel, rain); const label = (p[0] === "A" && feel >= SUMMER) ? "ノーネクタイ(きちんと)" : p[1];
+    '<div class="list">' + PATTERNS.map(p => { const o = compose(p[0], feel, rain); const label = (p[0] === "A" && feel >= SUMMER) ? "Formal (No Tie)" : p[1];
       return '<div class="item"><div class="fig">' + figure(o) + '</div><div><h2>' + label + '</h2><ul class="parts">' +
         o.map(x => '<li><i style="' + (x[1] ? 'background:' + cssOf(x[1], x[2] === "pants" || x[2] === "set") : 'border-style:dashed') + '"></i>' + x[0] + (x[1] ? '' : '(見えない想定)') + '</li>').join("") + '</ul></div></div>'; }).join("") + '</div>' +
     '<div class="foot">' + GO + '時・' + BACK + '時の予報から自動で提案しています(Open-Meteo)。5時と23時に更新します。</div>';
