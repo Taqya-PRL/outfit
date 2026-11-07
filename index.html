@@ -159,9 +159,15 @@ function compose(k, feel, rain) {
   const out = [];
   let tone, stone, set = false;
   const suit = k === "A" && feel <= 17 && r() < 0.5;
+  const noJk = !suit && k !== "A" && feel <= SEASON["冬"][1] && r() < 0.45; // 寒い日はジャケットの代わりに厚手ニット
   // コートは冬(体感12℃以下)のみ。チェスターコート(BGE)はカシミヤのため冬限定
   if (feel <= SEASON["冬"][1]) { const c = (feel < 5 || (k === "C" && feel < 10)) ? COATS[1] : COATS[0]; out.push([d(c[0], c[1]), c[1], "coat"]); }
   if (suit) { tone = stone = "brown"; set = true; out.push([d(SUIT[0], SUIT[1]), SUIT[1], "set", 0]); }
+  else if (noJk) {
+    const kn = pick(TOPS.filter(x => x[6] && x[3].includes(k) && ok(x)));
+    tone = stone = /BRW/.test(kn[1]) ? "brown" : "none";
+    out.push([d(kn[0], kn[1]), kn[1], "top", kn[5]]);
+  }
   else {
     let cands = JACKETS.filter(ok).map(x => ({ n: d(x[0], x[1]), c: x[1], t: x[3] }))
       .concat(SETUPS.filter(ok).map(x => ({ n: d(x[0] + "・ジャケット", x[1]), c: x[1], t: x[3], s: x })));
@@ -170,8 +176,10 @@ function compose(k, feel, rain) {
     if (j.s && r() < 0.6) { set = true; out.push([d(j.s[0], j.s[1]), j.s[1], "set", j.s[4]]); }
     else out.push([j.n, j.c, "jacket"]);
   }
-  const top = pick(TOPS.filter(x => x[3].includes(k) && ok(x) && (k !== "A" || x[4]) && !x[6])); // 厚手(x[6])はジャケットと合わせない
-  out.push([d(top[0], top[1]), top[1], "top", top[5]]);
+  if (!noJk) {
+    const top = pick(TOPS.filter(x => x[3].includes(k) && ok(x) && (k !== "A" || x[4]) && !x[6])); // 厚手(x[6])はジャケットと合わせない
+    out.push([d(top[0], top[1]), top[1], "top", top[5]]);
+  }
   if (k === "A" && feel < SUMMER) { const t = pick(TIES.filter(ok)); out.push([d(t[0], t[1]), t[1], "tie"]); }
   if (!set) { const p = pick(PANTS.filter(x => x[3].includes(k) && ok(x) && !x[4].includes(tone))); out.push([d(p[0], p[1]), p[1], "pants", p[5]]); if (p[1] === "BLK") stone = "black"; else if (p[1].includes("BRW")) stone = "brown"; }
   const sOk = (x, nr) => x[3].includes(k) && ok(x) && !x[4].includes(stone) && !(nr && x[5]);
@@ -220,7 +228,7 @@ function figure(o) {
   defs.push('<linearGradient id="' + gid + '" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient>');
   const SD = "url(#" + gid + ")";
   const set = g("set"), jk = g("jacket"), cp = g("pants"), top = g("top"), tie = g("tie"), coat = g("coat"), so = g("socks"), sh = g("shoes");
-  const jc = F((set || jk)[1]), pc = FG(set ? set[1] : cp[1]), tc = F(top[1]);
+  const hasJ = !!(set || jk), jc = hasJ ? F((set || jk)[1]) : null, pc = FG(set ? set[1] : cp[1]), tc = F(top[1]);
   const PE = (set ? set[3] : cp[3]) ? 198 : 214;
   const suit = !!set && set[0].startsWith("スリーピース");
   const sneaker = /スニーカー/.test(sh[0]), slip = /スリッポン/.test(sh[0]);
@@ -321,12 +329,14 @@ function figure(o) {
 
   // ===== レイアウト(上から: コート/ジャケット → シャツ・ネクタイ・パンツ → 靴・靴下) =====
   let y = 12, s = '<g stroke="rgba(0,0,0,.22)" stroke-width=".7" stroke-linejoin="round">';
-  const place = (inner, sc, top0, bottom, label) => {
-    s += '<g transform="translate(' + (120 - 70 * sc) + ' ' + (y - top0 * sc) + ') scale(' + sc + ')">' + inner + '</g>';
-    y += (bottom - top0) * sc; s += cap(120, y + 11, label); y += 26;
+  const place = (inner, sc, top0, bottom, label, cx) => {
+    s += '<g transform="translate(' + (cx - 70 * sc) + ' ' + (y - top0 * sc) + ') scale(' + sc + ')">' + inner + '</g>';
+    const yy = y + (bottom - top0) * sc; s += cap(cx, yy + 11, label); return yy + 26;
   };
-  if (coat) { const c = coatFlat(); place(c.svg, 1.15, 37, c.hem, "COAT"); place(jacketFlat(), 1.0, 30, 150, set ? (suit ? "SUIT" : "SETUP") : "JACKET"); }
-  else place(jacketFlat(), 1.6, 30, 150, set ? (suit ? "SUIT" : "SETUP") : "JACKET");
+  const jLabel = set ? (suit ? "SUIT" : "SETUP") : "JACKET";
+  if (coat && hasJ) { const c = coatFlat(); y = Math.max(place(c.svg, 0.88, 37, c.hem, "COAT", 62), place(jacketFlat(), 0.9, 30, 150, jLabel, 178)); } // コート左・ジャケット右
+  else if (coat) { const c = coatFlat(); y = place(c.svg, 1.15, 37, c.hem, "COAT", 120); }
+  else y = place(jacketFlat(), 1.6, 30, 150, jLabel, 120);
   const yc = y;
   s += topItem(8, yc) + cap(48, yc + 104, topLabel);
   let my = yc;
