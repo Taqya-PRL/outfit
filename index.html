@@ -102,6 +102,7 @@ const PANTS = [ // 名前, 色, 季節, 対象, 合わせないジャケット�
   ["ジーンズ","BLK","春秋冬","C","brown navy",0],
   ["ジーンズ","DRK-NVY","春秋","C","navy",1] ]
   .concat(SETUPS.map(s => [s[0] + "・パンツ", s[1], s[2], "ABC", s[3] === "navy" ? "navy" : s[3] === "black" ? "brown navy" : "brown", 1]));
+const KNITS = ["スフレヤーンハーフジップハイネックニット", "スフレヤーンハイネックカーディガン"]; // 日替わりで交互に使う
 const TOPS = [ // 名前, 色, 範囲, 対象, ドレスシャツ, 首が詰まった形, ジャケットと合わせ不可(厚手)
   ["シャツ","WHT",[-99,99],"ABC",1,0],
   ["シャツ","DEP-IDG",[8,27],"ABC",1,0],
@@ -172,15 +173,20 @@ function compose(k, feel, rain, wind) {
   else if (feel <= SEASON["冬"][1]) { const c = (feel < 5 || (k === "C" && feel < 10)) ? COATS[1] : COATS[0]; out.push([d(c[0], c[1]), c[1], "coat"]); }
   if (suit) { tone = stone = "brown"; set = true; out.push([d(SUIT[0], SUIT[1]), SUIT[1], "set", 0]); }
   else if (noJk) {
+    const ds = (TARGET_DATE || new Date().toLocaleDateString("sv-SE")).match(/(\d+)-(\d+)-(\d+)/);
+    const dn = ds ? Math.floor(Date.UTC(+ds[1], +ds[2] - 1, +ds[3]) / 86400000) : 0;
+    const knitToday = KNITS[dn % 2]; // スフレヤーンのニットは日替わりで交互(2日連続で同じニットにしない)
     let pool = k === "C" ? TOPS.filter(x => x[3].includes("C") && ok(x)) : TOPS.filter(x => x[6] && x[3].includes(k) && ok(x));
+    pool = pool.filter(x => !x[6] || x[0] === knitToday);
     if (k === "C" && feel <= SEASON["冬"][1]) { const th = pool.filter(x => x[6]); if (th.length && r() < 0.7) pool = th; } // 寒い日は厚手ニットを優先
     const kn = pick(pool);
     tone = stone = /BRW/.test(kn[1]) ? "brown" : "none";
-    if (k === "B" && kn[6] && r() < 0.6) { // 厚手ニット+ニットタイ(Smart Casual)。タイにはビジネスシャツが必須
-      const bs = pick(TOPS.filter(x => x[4] && ok(x)));
+    if (kn[6]) { // 厚手ニットは必ずシャツか長袖Tシャツと合わせる(ニットタイを着けるときはビジネスシャツ)
+      const withTie = k === "B" && r() < 0.6;
+      const bs = pick(TOPS.filter(x => withTie ? (x[4] && ok(x)) : ((x[4] && ok(x)) || x[0] === "Tシャツ")));
       out.push([d(bs[0], bs[1]), bs[1], "inner", bs[5]]);
       out.push([d(kn[0], kn[1]), kn[1], "top", kn[5]]);
-      const kt = pick(TIES.filter(x => x[0] === "ニットタイ")); out.push([d(kt[0], kt[1]), kt[1], "tie"]);
+      if (withTie) { const kt = pick(TIES.filter(x => x[0] === "ニットタイ")); out.push([d(kt[0], kt[1]), kt[1], "tie"]); }
     } else out.push([d(kn[0], kn[1]), kn[1], "top", kn[5]]);
   }
   else {
@@ -271,14 +277,14 @@ function figure(o) {
   };
   // コート(単体)
   const coatFlat = () => {
-    const c = F(coat[1]), down = coat[0].startsWith("ダウン"), hem = down ? 140 : 226, hx = down ? 34 : 38;
+    const c = F(coat[1]), down = coat[0].startsWith("ダウン"), hem = down ? 162 : 226, hx = down ? 34 : 38;
     const cd = "M37 44C30 46 26 58 25 70L19 " + (down ? 124 : 128) + "L38 " + (down ? 127 : 131) + "L42 86Z", ccf = [28.5, down ? 125.5 : 129.5, 9.5];
     let k = sleeve(cd, c, 8, 38, 48, false, ccf) + sleeve(cd, c, 8, 38, 48, true, ccf);
     k += '<path d="M62 37L78 37L70 ' + (down ? 100 : 92) + 'Z" fill="' + c + '"/><path d="M62 37L78 37L70 ' + (down ? 100 : 92) + 'Z" fill="' + lining + '" stroke="none"/>';
-    k += body("M36 46Q44 38 58 37L63 37L70 " + (down ? 100 : 92) + "L70 " + hem + "L" + hx + " " + hem + "Q" + (hx - 1) + " " + (down ? 120 : 150) + " 38 100Z", c);
+    k += body("M36 46Q44 38 58 37L63 37L70 " + (down ? 100 : 92) + "L70 " + hem + "L" + hx + " " + hem + "Q" + (hx - 1) + " " + (down ? 130 : 150) + " 38 100Z", c);
     if (down) {
       k += '<rect x="56" y="29" width="28" height="13" rx="6.5" fill="' + c + '"/><ellipse cx="70" cy="31" rx="9" ry="2" fill="rgba(0,0,0,.35)" stroke="none"/>';
-      [64, 82, 100, 118].forEach(y => { k += sym('<path d="M40 ' + y + 'Q55 ' + (y + 4) + ' 70 ' + y + '" fill="none" stroke="rgba(255,255,255,.18)"/>'); });
+      [64, 82, 100, 118, 136].forEach(y => { k += sym('<path d="M40 ' + y + 'Q55 ' + (y + 4) + ' 70 ' + y + '" fill="none" stroke="rgba(255,255,255,.18)"/>'); });
     } else {
       k += sym('<path d="M57 38L63 37L70 92L50 62L54 48Z" fill="' + lite + '"/>');
       [112, 142, 172].forEach(y => { k += '<circle cx="67" cy="' + y + '" r="1.5" fill="rgba(0,0,0,.45)" stroke="none"/>'; });
