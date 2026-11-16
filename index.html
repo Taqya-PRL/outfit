@@ -107,7 +107,8 @@ const TOPS = [ // 名前, 色, 範囲, 対象, ドレスシャツ, 首が詰ま�
   ["シャツ","WHT",[-99,99],"ABC",1,0],
   ["シャツ","DEP-IDG",[8,27],"ABC",1,0],
   ["シャツ","PAL-IDG","春夏","ABC",1,0],
-  ["Tシャツ","WHT",[20,99],"C",0,0],
+  ["半袖クルーネックTシャツ","WHT",[20,99],"C",0,0],
+  ["長袖クルーネックTシャツ","WHT",[8,24],"C",0,0],
   ["ポロシャツ","WHT",[18,99],"BC",0,0],
   ["ポロシャツ","BLK",[18,99],"BC",0,0],
   ["オープンカラーシャツ","WHT",[22,99],"BC",0,0],
@@ -183,7 +184,7 @@ function compose(k, feel, rain, wind) {
     tone = stone = /BRW/.test(kn[1]) ? "brown" : "none";
     if (kn[6]) { // 厚手ニットは必ずシャツか長袖Tシャツと合わせる(ニットタイを着けるときはビジネスシャツ)
       const withTie = k === "B" && r() < 0.6;
-      const bs = pick(TOPS.filter(x => withTie ? (x[4] && ok(x)) : ((x[4] && ok(x)) || x[0] === "Tシャツ")));
+      const bs = pick(TOPS.filter(x => withTie ? (x[4] && ok(x)) : ((x[4] && ok(x)) || x[0] === "長袖クルーネックTシャツ")));
       out.push([d(bs[0], bs[1]), bs[1], "inner", bs[5]]);
       out.push([d(kn[0], kn[1]), kn[1], "top", kn[5]]);
       if (withTie) { const kt = pick(TIES.filter(x => x[0] === "ニットタイ")); out.push([d(kt[0], kt[1]), kt[1], "tie"]); }
