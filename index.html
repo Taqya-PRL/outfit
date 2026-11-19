@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>今日の出社コーデ</title>
+<link rel="preconnect" href="https://api.open-meteo.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{
   --bg:#ffffff; --fg:#2b2b28; --sub:#6f6f69; --line:#e3e1dc; --tint:#eef3f7; --accent:#3b6a8f;
@@ -56,6 +57,25 @@ const LON = q.get("lon") || "139.4687";
 const NAME = q.get("name") || "所沢";
 const GO = +(q.get("go") || 8);   // 出社時刻
 const BACK = +(q.get("back") || 19); // 退勤時刻
+
+// 天気の取得はスクリプトの最初に開始する(他の処理を待たない)
+const WX_URL = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
+  "&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m" +
+  "&timezone=Asia%2FTokyo&forecast_days=2";
+function fetchWeather() {
+  const once = () => {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 10000);
+    return fetch(WX_URL, { signal: ac.signal }).then(r => { clearTimeout(t); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }, e => { clearTimeout(t); throw e; });
+  };
+  return once().catch(() => once());
+}
+const WX_FETCH = typeof window !== "undefined" ? fetchWeather() : null;
+if (WX_FETCH) WX_FETCH.catch(() => {});
+
+// 前回取得した予報を保存しておき、次回はすぐ表示してから最新に差し替える
+const CACHE_KEY = "wx2:" + LAT + "," + LON;
+function readCache() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return c && Date.now() - c.t < 12 * 3600000 ? c.h : null; } catch (e) { return null; } }
+function writeCache(h) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), h: h })); } catch (e) {} }
 
 // 気温帯(体感温度)
 const TIERS = [
@@ -419,28 +439,23 @@ function scheduleRefresh() {
 
 const avg = (a) => a.reduce((s, v) => s + v, 0) / a.length;
 
-async function main() {
-  const url = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
-    "&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m" +
-    "&timezone=Asia%2FTokyo&forecast_days=2";
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  const d = (await res.json()).hourly;
-
+function render(d, stale) {
   // 夜(EVENING)以降は翌日の予報、それ以外は当日の予報を使う(更新は朝MORNINGと夜EVENING)
   const now = new Date(), OFF = now.getHours() >= EVENING ? 24 : 0;
   const target = new Date(now.getTime() + OFF * 3600000);
   const pad = (n) => String(n).padStart(2, "0");
   TARGET_DATE = target.getFullYear() + "-" + pad(target.getMonth() + 1) + "-" + pad(target.getDate());
 
-  const go = [GO + OFF, GO + 1 + OFF], back = [BACK + OFF, BACK + 1 + OFF];
-  const pick = (key, hrs) => avg(hrs.map(h => d[key][h]));
+  // 予報の時刻表から表示日の時間帯を探す(古い保存データで日付がずれていたら使わない)
+  const ix = (h) => { const i = d.time.indexOf(TARGET_DATE + "T" + pad(Math.min(h, 23)) + ":00"); if (i < 0) throw new Error("予報の日付が合いません"); return i; };
+  const go = [GO, GO + 1].map(ix), back = [BACK, BACK + 1].map(ix), all = go.concat(back);
+  const pick = (key, idx) => avg(idx.map(i => d[key][i]));
   const tGo = pick("temperature_2m", go), tBack = pick("temperature_2m", back);
   const fGo = pick("apparent_temperature", go), fBack = pick("apparent_temperature", back);
-  const rain = Math.max(...[GO, GO + 1, BACK, BACK + 1].map(h => d.precipitation_probability[h + OFF] || 0));
-  const wind = Math.max(...[GO, GO + 1, BACK, BACK + 1].map(h => d.wind_speed_10m[h + OFF] || 0)); // km/h
+  const rain = Math.max(...all.map(i => d.precipitation_probability[i] || 0));
+  const wind = Math.max(...all.map(i => d.wind_speed_10m[i] || 0)); // km/h
 
-  const wxHtml = '<div class="wx">' + [["行き", d.weather_code[GO + OFF]], ["帰り", d.weather_code[BACK + OFF]]].map(x => '<div>' + wxIcon(x[1]) + '<span>' + x[0] + ' ' + WX[wxCat(x[1])] + '</span></div>').join("") + '</div>';
+  const wxHtml = '<div class="wx">' + [["行き", d.weather_code[go[0]]], ["帰り", d.weather_code[back[0]]]].map(x => '<div>' + wxIcon(x[1]) + '<span>' + x[0] + ' ' + WX[wxCat(x[1])] + '</span></div>').join("") + '</div>';
   // 朝晩の低いほうの体感温度に合わせる
   const feel = Math.min(fGo, fBack);
   const tier = TIERS.find(t => feel >= t.min);
@@ -465,7 +480,22 @@ async function main() {
     '<div class="list">' + PATTERNS.map(p => { const o = compose(p[0], feel, rain, wind); const label = (p[0] === "A" && feel >= SUMMER) ? "Formal (No Tie)" : p[1];
       return '<div class="item"><div class="fig">' + figure(o) + '</div><div><h2>' + label + '</h2><ul class="parts">' +
         o.map(x => '<li><i style="' + (x[1] ? 'background:' + cssOf(x[1], (x[2] === "pants" || x[2] === "set") ? "grid" : x[2] === "socks" ? SOCK_CHK[x[1]] : null) : 'border-style:dashed') + '"></i>' + x[0] + (x[1] ? '' : '(見えない想定)') + '</li>').join("") + '</ul></div></div>'; }).join("") + '</div>' +
-    '<div class="foot">' + GO + '時・' + BACK + '時の予報から自動で提案しています(Open-Meteo)。' + MORNING + '時と' + EVENING + '時に更新します。</div>';
+    '<div class="foot">' + (stale ? '前回取得した予報を表示中です。最新の予報を取得しています…' : GO + '時・' + BACK + '時の予報から自動で提案しています(Open-Meteo)。' + MORNING + '時と' + EVENING + '時に更新します。') + '</div>';
+}
+
+async function main() {
+  // 前回の予報があれば先に表示し、最新が届いたら差し替える
+  let shown = false;
+  const c = readCache();
+  if (c) { try { render(c, true); shown = true; } catch (e) {} }
+  try {
+    const j = await WX_FETCH;
+    writeCache(j.hourly);
+    render(j.hourly, false);
+  } catch (e) {
+    if (shown) { const f = document.querySelector(".foot"); if (f) f.textContent = "最新の予報を取得できなかったため、前回取得した予報を表示しています。"; }
+    else throw e;
+  }
 }
 
 main().catch(e => {
